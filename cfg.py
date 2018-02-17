@@ -5,7 +5,7 @@ from time import sleep
 HOST = "irc.chat.twitch.tv"
 PORT = 6667
 NICK = "giphertius"
-PASS = "oauth:ib74ojtkqgux11lmoykpoc719co3zq"
+PASS = REDACTED
 CHAN = "#zerg3rr"
 
 RATE = (20/30) #messages per seconds
