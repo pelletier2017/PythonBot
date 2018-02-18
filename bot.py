@@ -1,13 +1,18 @@
 # http://www.instructables.com/id/Twitchtv-Moderator-Bot/
 # !/usr/bin/env python3
 
-from StreamPythonbotbroke import cfg
-from StreamPythonbotbroke import msgtime
+
+# create some dank commands
+# russian roulette, join channel message
+
+from twitchbot import cfg
+from twitchbot import msgtime
 import os.path
 import socket
 import datetime
 from time import sleep
-# import re
+import re
+import random
 
 
 def chat(sock, msg):
@@ -17,8 +22,9 @@ def chat(sock, msg):
    sock -- the socket over which to send the message
    msg -- the message to be sent
    """
-    full_msg = "PRIVMSG {}: {}\n".format(cfg.CHAN, msg)
+    full_msg = "PRIVMSG {} :{}\n".format(cfg.CHAN, msg)
     msg_encoded = full_msg.encode("utf-8")
+    print(msg_encoded)
     sock.send(msg_encoded)
 
 
@@ -39,7 +45,6 @@ def timeout(sock, user, secs=input()):
    user -- the user to be timed out
    secs --  the length of the timeout in seconds"""
     chat(sock, ".timeout {}".format(user, secs))
-
 
 # connects us to IRC
 s = socket.socket()
@@ -64,6 +69,7 @@ while True:
     # tests if we get a ping so we can pong back
     elif response == "PING :tmi.twitch.tv\r\n":
         s.send("PONG :tmi.twitch.tv\r\n".encode("utf-8"))
+        print("PING PONG")
         sleep(1 / cfg.RATE)
 
     # otherwise prints text and writes to file
@@ -76,19 +82,38 @@ while True:
         with open(completeName, 'a', encoding='utf-8') as f:
 
             # this breaks up the response so you can have a simpler/nicer looking output
-            semi = response.find(' :')
-            exclam = response.find('!')
-            part1 = response[1:exclam]
-            part3 = response[semi:]
-            part3 = part3.strip(' ')
-            allparts = (part1 + ' ' + part3)
+
+            chat_msg = re.compile(r"^:\w+!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #\w+ :")
+            message = chat_msg.sub("", response)
+            username = re.search(r"\w+", response).group(0)
+
+            allparts = (username + ':' + ' ' + message)
 
             # writes the lines to the file
-            toFile = (msgtime.formatted_time + allparts + "/n")
+            toFile = (msgtime.formatted_time + allparts + "\n")
             f.write(toFile)
-            print(msgtime.formatted_time)
-            print(allparts)
+            print(msgtime.formatted_time, allparts)
             cfg.sleep(0.5)
 
-        if "hello" in allparts:
-            chat(s, 'Hello')
+            # defining commands to be used in chat
+            hello = "hello"
+            eightball = ["No", "Yes", "Leave me alone", "I think we already know the answer to THAT",
+                         "I'm not sure, I bet Manoli or Ron know though", "Nobody loves you, stop bothering me",
+                         "My sources point to yes", "Could be yes, could be no, nobody knows!", "Maybe",
+                         "Are you kidding me?",
+                         "You may rely on it"]
+            bm = ["Bronze 5 is too good for you", "You're terrible at this",
+                  "Your mother is a bronze 5 and your father smells of elderberries",
+                  "Crying yourself to sleep again tonight? good.",
+                  "Is your father still out at the store? Don't worry, he'll come back soon",
+                  "If only someone cared...",
+                  "You must be a glutton for punishment eh?", "kys", "I bet you main yasuo"]
+
+            if "hello" in allparts:
+                chat(s, hello + ' ' + username)
+
+            if "eightball" in allparts:
+                chat(s, random.choice(eightball))
+
+            if "bm" in allparts:
+                chat(s, random.choice(bm))
