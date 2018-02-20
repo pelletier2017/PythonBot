@@ -3,7 +3,7 @@
 
 
 # create some dank commands
-# russian roulette game, join channel message, hangman game (users can enter words), guess number game
+# russian roulette game, join channel message, hangman game (users can enter words)
 
 from twitchbot import cfg
 from twitchbot import msgtime
@@ -14,6 +14,8 @@ import datetime
 from time import sleep
 import re
 import random
+import requests
+import json
 
 
 def chat(sock, msg):
@@ -57,7 +59,19 @@ s.send("JOIN {}\r\n".format(cfg.CHAN).encode("utf-8"))
 
 randnum = random.randint(1, 1000)
 guessnumbercount = 0
+jsonData = requests.get(url='https://tmi.twitch.tv/group/user/zerg3rr/chatters').json()
+users = jsonData['chatters']['viewers'] + jsonData['chatters']['moderators']
+print(users)
 while True:
+    newuserlist = jsonData['chatters']['viewers'] + jsonData['chatters']['moderators']
+    new_list = set(newuserlist) - set(users)
+    fp = open("welcome_messages.json", 'r')
+    messages = json.load(fp)
+    for i in new_list:
+        if i in messages:
+            chat(s, messages[i])
+    users = newuserlist
+
     response = s.recv(1024).decode("utf-8")
     # this breaks up the response so you can have a simpler/nicer looking output
 
@@ -94,54 +108,64 @@ while True:
             # writes the lines to the file
             toFile = (msgtime.formatted_time + allparts + "\n")
             f.write(toFile)
-            print(msgtime.formatted_time, allparts)
+        print(msgtime.formatted_time, allparts)
 
-            hello = "hello"
-            eightball = ["No", "Yes", "Leave me alone", "I think we already know the answer to THAT",
-                         "I'm not sure, I bet Manoli or Ron know though",
-                         "My sources point to yes", "Could be yes, could be no, nobody knows!", "Maybe",
-                         "Are you kidding me?", "You may rely on it", 'Outlook not so good', 'Don\'t count on it',
-                         'Most likely', 'Without a doubt', 'As I see it, yes']
-            bm = ["Bronze 5 is too good for you", "You're terrible at this",
-                  "Your mother is a bronze 5 and your father smells of elderberries",
-                  "Crying yourself to sleep again tonight? Good.",
-                  "Is your father still out at the store? Don't worry, he'll come back soon",
-                  "If only someone cared...",
-                  "You must be a glutton for punishment eh?", "I bet you main yasuo",
-                  "You degenerate weeb lover", "Hey you tried, now if only that mattered...",
-                  'Trying for first in the Darwin awards? Go you!', "Nobody loves you, stop bothering me"]
+        hello = "hello"
+        eightball = ["No", "Yes", "Leave me alone", "I think we already know the answer to THAT",
+                     "I'm not sure, I bet Manoli or Ron know though",
+                     "My sources point to yes", "Could be yes, could be no, nobody knows!", "Maybe",
+                     "Are you kidding me?", "You may rely on it", 'Outlook not so good', 'Don\'t count on it',
+                     'Most likely', 'Without a doubt', 'As I see it, yes']
+        bm = ["Bronze 5 is too good for you", "You're terrible at this",
+              "Your mother is a bronze 5 and your father smells of elderberries",
+              "Crying yourself to sleep again tonight? Good.",
+              "Is your father still out at the store? Don't worry, he'll come back soon",
+              "If only someone cared...",
+              "You must be a glutton for punishment eh?", "I bet you main yasuo",
+              "You degenerate weeb lover", "Hey you tried, now if only that mattered...",
+              'Trying for first in the Darwin awards? Go you!', "Nobody loves you, stop bothering me",
+              "You have two parts of brain, 'left' and 'right'. In the left side, there's nothing right. "
+              "In the right side, there's nothing left."]
 
-            github = 'https://github.com/ZERG3R/PythonBot'
+        github = 'https://github.com/ZERG3R/PythonBot'
 
-            if "hello" in allparts:
-                chat(s, hello + ' ' + username)
+        if '!joinmessage' in allparts:
+            message = re.search(r"(joinmessage .+)", allparts)
+            joinmessage = ' '.join(message.group(0).split(" ")[1:])
+            joinmessage = joinmessage.strip()
+            messages[username] = joinmessage
+            with open('welcome_messages.json', 'w') as jfp:
+                json.dump(messages, jfp)
 
-            if "eightball" in allparts:
-                chat(s, random.choice(eightball))
+        if "hello" in allparts:
+            chat(s, hello + ' ' + username)
 
-            if "bm" in allparts:
-                chat(s, random.choice(bm))
+        if "eightball" in allparts:
+            chat(s, random.choice(eightball))
 
-            if 'github' in allparts:
-                chat(s, github)
+        if "bm" in allparts:
+            chat(s, random.choice(bm))
 
-            if 'guessnumber' in allparts:
-                number = 0
-                stringnum = str(randnum)
-                try:
-                    info = re.search(r"(guessnumber \d+)", allparts)
-                    number = info.group(0).split(" ")[1]
-                except:
-                    pass
-                guessnumbercount += 1
-                if guessnumbercount % 5 == 0:
-                    if int(number) > randnum:
-                        chat(s, 'Number is too high! Try guessing lower')
-                    elif int(number) < randnum:
-                        chat(s, 'Number is too low! Try guessing higher')
-                elif stringnum in allparts:
-                    chat(s, '!give ' + username + ' ' + stringnum)
-                    randnum = random.randint(1, 1000)
+        if 'github' in allparts:
+            chat(s, github)
 
-            #if "!roulette" in allparts:
-            #    botcommands.russian_roulette()
+        if 'guessnumber' in allparts:
+            number = 0
+            stringnum = str(randnum)
+            try:
+                info = re.search(r"(guessnumber \d+)", allparts)
+                number = info.group(0).split(" ")[1]
+            except:
+                pass
+            guessnumbercount += 1
+            # if guessnumbercount % 5 == 0:
+            if int(number) > randnum:
+                chat(s, 'Number is too high! Try guessing lower')
+            elif int(number) < randnum:
+                chat(s, 'Number is too low! Try guessing higher')
+            elif stringnum in allparts:
+                chat(s, '!give ' + username + ' ' + stringnum)
+                randnum = random.randint(1, 1000)
+
+        #if "!roulette" in allparts:
+        #    botcommands.russian_roulette()
