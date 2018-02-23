@@ -1,34 +1,10 @@
 # http://www.instructables.com/id/Twitchtv-Moderator-Bot/
 # !/usr/bin/env python3
 
-
-# create some dank commands
-# russian roulette game, join channel message, hangman game (users can enter words)
-
-from twitchbot import cfg
-from twitchbot import msgtime
-# from twitchbot import botcommands
-import os.path
-import socket
-import datetime
 from time import sleep
-import re
-import random
-import requests
-import json
-
-
-def chat(sock, msg):
-    """
-   send a chat message to the server
-   Keyboard arguments:
-   sock -- the socket over which to send the message
-   msg -- the message to be sent
-   """
-    full_msg = "PRIVMSG {} :{}\n".format(cfg.CHAN, msg)
-    msg_encoded = full_msg.encode("utf-8")
-    print(msg_encoded)
-    sock.send(msg_encoded)
+from twitchbot import msgtime, cfg, botcommands, twitchchat
+import os.path, sys, socket, datetime, re, random,  json
+sys.path.append('e:/Programming/projects/twitchbot/botcommands')
 
 
 def ban(sock, user):
@@ -38,7 +14,7 @@ def ban(sock, user):
    sock -- the socket over which to send the ban command
    user -- the user to be banned
    """
-    chat(sock, ".ban{}".format(user))
+    twitchchat.chat(sock, ".ban{}".format(user))
 
 
 def timeout(sock, user, secs=input()):
@@ -47,7 +23,8 @@ def timeout(sock, user, secs=input()):
    sock -- the socket over which to send the timeout command
    user -- the user to be timed out
    secs --  the length of the timeout in seconds"""
-    chat(sock, ".timeout {}".format(user, secs))
+    twitchchat.chat(sock, ".timeout {}".format(user, secs))
+
 
 # connects us to IRC
 s = socket.socket()
@@ -57,20 +34,8 @@ s.send("PASS {}\r\n".format(cfg.PASS).encode("utf-8"))
 s.send("NICK {}\r\n".format(cfg.NICK).encode("utf-8"))
 s.send("JOIN {}\r\n".format(cfg.CHAN).encode("utf-8"))
 
-randnum = random.randint(1, 1000)
-guessnumbercount = 0
-jsonData = requests.get(url='https://tmi.twitch.tv/group/user/zerg3rr/chatters').json()
-users = jsonData['chatters']['viewers'] + jsonData['chatters']['moderators']
-print(users)
+
 while True:
-    newuserlist = jsonData['chatters']['viewers'] + jsonData['chatters']['moderators']
-    new_list = set(newuserlist) - set(users)
-    fp = open("welcome_messages.json", 'r')
-    messages = json.load(fp)
-    for i in new_list:
-        if i in messages:
-            chat(s, messages[i])
-    users = newuserlist
 
     response = s.recv(1024).decode("utf-8")
     # this breaks up the response so you can have a simpler/nicer looking output
@@ -80,6 +45,8 @@ while True:
     username = re.search(r"\w+", response).group(0)
 
     allparts = (username + ':' + ' ' + message)
+    with open('allparts.txt', 'w', encoding='utf-8') as file:
+        file.write(allparts)
 
     # tests connection/reconnects if disconnect occurs
     if len(response) == 0:
@@ -110,62 +77,37 @@ while True:
             f.write(toFile)
         print(msgtime.formatted_time, allparts)
 
-        hello = "hello"
-        eightball = ["No", "Yes", "Leave me alone", "I think we already know the answer to THAT",
-                     "I'm not sure, I bet Manoli or Ron know though",
-                     "My sources point to yes", "Could be yes, could be no, nobody knows!", "Maybe",
-                     "Are you kidding me?", "You may rely on it", 'Outlook not so good', 'Don\'t count on it',
-                     'Most likely', 'Without a doubt', 'As I see it, yes']
-        bm = ["Bronze 5 is too good for you", "You're terrible at this",
-              "Your mother is a bronze 5 and your father smells of elderberries",
-              "Crying yourself to sleep again tonight? Good.",
-              "Is your father still out at the store? Don't worry, he'll come back soon",
-              "If only someone cared...",
-              "You must be a glutton for punishment eh?", "I bet you main yasuo",
-              "You degenerate weeb lover", "Hey you tried, now if only that mattered...",
-              'Trying for first in the Darwin awards? Go you!', "Nobody loves you, stop bothering me",
-              "You have two parts of brain, 'left' and 'right'. In the left side, there's nothing right. "
-              "In the right side, there's nothing left."]
-
-        github = 'https://github.com/ZERG3R/PythonBot'
+        if '!pythoncommands' in allparts:
+            twitchchat.chat(s, botcommands.pythoncommands())
 
         if '!joinmessage' in allparts:
+            # try:
             message = re.search(r"(joinmessage .+)", allparts)
             joinmessage = ' '.join(message.group(0).split(" ")[1:])
             joinmessage = joinmessage.strip()
-            messages[username] = joinmessage
+            botcommands.messages[username] = joinmessage
             with open('welcome_messages.json', 'w') as jfp:
-                json.dump(messages, jfp)
+                json.dump(botcommands.messages, jfp)
+            # except:
+                # pass
+        # print(botcommands.new_list)
+        for i in botcommands.new_list:
+            print(i)
+            if i in botcommands.messages:
+                print(i)
+                twitchchat.chat(s, botcommands.messages[i])
 
-        if "hello" in allparts:
-            chat(s, hello + ' ' + username)
+        if "!hello" in allparts:
+            twitchchat.chat(s, botcommands.hello() + ' ' + username)
 
-        if "eightball" in allparts:
-            chat(s, random.choice(eightball))
+        if "!eightball" in allparts:
+            twitchchat.chat(s, random.choice(botcommands.eightball()))
 
-        if "bm" in allparts:
-            chat(s, random.choice(bm))
+        if "!bm" in allparts:
+            twitchchat.chat(s, random.choice(botcommands.bm()))
 
-        if 'github' in allparts:
-            chat(s, github)
+        if '!github' in allparts:
+            twitchchat.chat(s, botcommands.github())
 
-        if 'guessnumber' in allparts:
-            number = 0
-            stringnum = str(randnum)
-            try:
-                info = re.search(r"(guessnumber \d+)", allparts)
-                number = info.group(0).split(" ")[1]
-            except:
-                pass
-            guessnumbercount += 1
-            # if guessnumbercount % 5 == 0:
-            if int(number) > randnum:
-                chat(s, 'Number is too high! Try guessing lower')
-            elif int(number) < randnum:
-                chat(s, 'Number is too low! Try guessing higher')
-            elif stringnum in allparts:
-                chat(s, '!give ' + username + ' ' + stringnum)
-                randnum = random.randint(1, 1000)
-
-        #if "!roulette" in allparts:
-        #    botcommands.russian_roulette()
+        if '!guessnumber' in allparts:
+            twitchchat.chat(s, botcommands.guessnumber())
