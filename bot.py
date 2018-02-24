@@ -7,7 +7,9 @@ import json
 import os.path
 import random
 import re
+import requests
 import socket
+
 
 # project specific imports
 import msgtime
@@ -17,6 +19,9 @@ import twitchchat
 
 # if it works without this line i think we should remove it
 #sys.path.append('e:/Programming/projects/twitchbot/botcommands')
+
+
+WELCOME_MESSAGE_JSON = 'welcome_messages.json'
 
 
 def ban(sock, user):
@@ -49,6 +54,18 @@ def save_to_file(all_parts):
     print(msgtime.formatted_time(), all_parts)
 
 
+def load_welcome_messages():
+    file = open(WELCOME_MESSAGE_JSON, 'r')
+    messages = json.load(file)
+    return messages
+
+
+def update_welcome_messages(messages, new_user, new_msg):
+    messages[new_user] = new_msg
+    with open(WELCOME_MESSAGE_JSON, 'w') as f:
+        json.dump(messages, f)
+
+
 def connect_socket():
     s = socket.socket()
     s.connect((cfg.HOST, cfg.PORT))
@@ -58,7 +75,13 @@ def connect_socket():
     return s
 
 
-def handle_commands(all_parts, message, s, username):
+def get_viewers():
+    channel_json = requests.get(url='https://tmi.twitch.tv/group/user/zerg3rr/chatters').json()
+    viewers = (channel_json['chatters']['viewers']
+             + channel_json['chatters']['moderators'])
+    return viewers
+
+def handle_commands(s, username, message, welcome_messages):
 
     if message.startswith('!pythoncommands'):
         twitchchat.chat(s, botcommands.python_commands())
@@ -82,30 +105,37 @@ def handle_commands(all_parts, message, s, username):
         twitchchat.chat(s, botcommands.feel_good())
 
     elif message.startswith('!joinmessage'):
-        message = re.search(r"(joinmessage .+)", all_parts)
-        join_message = ' '.join(message.group(0).split(" ")[1:])
-        join_message = join_message.strip()
-        botcommands.messages[username] = join_message
-        with open('welcome_messages.json', 'w') as jfp:
-            json.dump(botcommands.messages, jfp)
+        # takes all text after "!joinmessage " to use as join_message
+        message_regex = re.search(r"(!joinmessage .+)", message)
+        join_message = message_regex.group(0).split(" ", 1)[1].strip()
+
+        update_welcome_messages(welcome_messages, username, join_message)
+        twitchchat.chat(s, "updated messages")
 
 
 def main():
 
     s = connect_socket()
+    welcome_messages = load_welcome_messages()
+    chat_regex = re.compile(r"^:\w+!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #\w+ :")
+    prev_viewers = set(get_viewers())
+
     while True:
 
         response = s.recv(1024).decode("utf-8")
-        # this breaks up the response so you can have a simpler/nicer looking output
-
-        chat_msg = re.compile(r"^:\w+!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #\w+ :")
-        message = chat_msg.sub("", response)
+        message = chat_regex.sub("", response)
         username = re.search(r"\w+", response).group(0)
         all_parts = (username + ': ' + message)
 
-        # this part is exactly the same as the file in chat_history
-        # with open('allparts.txt', 'a', encoding='utf-8') as file:
-        #    file.write(all_parts)
+        # welcomes all new viewers
+        viewers = set(get_viewers())
+        print(str(viewers))
+
+        new_viewers = viewers - prev_viewers
+        for viewer in new_viewers:
+            twitchchat.chat(s, welcome_messages[viewer])
+
+        prev_viewers = viewers
 
         # tests connection/reconnects if disconnect occurs
         if len(response) == 0:
@@ -121,7 +151,7 @@ def main():
         # otherwise prints text and writes to file
         else:
             save_to_file(all_parts)
-            handle_commands(all_parts, message, s, username)
+            handle_commands(s, username, message, welcome_messages)
 
 
 main()
