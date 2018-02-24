@@ -1,34 +1,22 @@
 # http://www.instructables.com/id/Twitchtv-Moderator-Bot/
 # !/usr/bin/env python3
 
-
-# create some dank commands
-# russian roulette game, join channel message, hangman game (users can enter words)
-
-from twitchbot import cfg
-from twitchbot import msgtime
-# from twitchbot import botcommands
-import os.path
-import socket
-import datetime
 from time import sleep
-import re
-import random
-import requests
+import datetime
 import json
- 
+import os.path
+import random
+import re
+import socket
 
-def chat(sock, msg):
-    """
-   send a chat message to the server
-   Keyboard arguments:
-   sock -- the socket over which to send the message
-   msg -- the message to be sent
-   """
-    full_msg = "PRIVMSG {} :{}\n".format(cfg.CHAN, msg)
-    msg_encoded = full_msg.encode("utf-8")
-    print(msg_encoded)
-    sock.send(msg_encoded)
+# project specific imports
+import msgtime
+import cfg
+import botcommands
+import twitchchat
+
+# if it works without this line i think we should remove it
+#sys.path.append('e:/Programming/projects/twitchbot/botcommands')
 
 
 def ban(sock, user):
@@ -38,134 +26,102 @@ def ban(sock, user):
    sock -- the socket over which to send the ban command
    user -- the user to be banned
    """
-    chat(sock, ".ban{}".format(user))
+    twitchchat.chat(sock, ".ban{}".format(user))
 
 
-def timeout(sock, user, secs=input()):
+def timeout(sock, user, secs):
     """Time out a user for a period of time (input).
    Keyword arguments:
    sock -- the socket over which to send the timeout command
    user -- the user to be timed out
    secs --  the length of the timeout in seconds"""
-    chat(sock, ".timeout {}".format(user, secs))
+    twitchchat.chat(sock, ".timeout {}".format(user, secs))
 
-# connects us to IRC
-s = socket.socket()
-s.connect((cfg.HOST, cfg.PORT))
-print("")
-s.send("PASS {}\r\n".format(cfg.PASS).encode("utf-8"))
-s.send("NICK {}\r\n".format(cfg.NICK).encode("utf-8"))
-s.send("JOIN {}\r\n".format(cfg.CHAN).encode("utf-8"))
 
-randnum = random.randint(1, 1000)
-guessnumbercount = 0
-jsonData = requests.get(url='https://tmi.twitch.tv/group/user/zerg3rr/chatters').json()
-users = jsonData['chatters']['viewers'] + jsonData['chatters']['moderators']
-print(users)
-while True:
-    newuserlist = jsonData['chatters']['viewers'] + jsonData['chatters']['moderators']
-    new_list = set(newuserlist) - set(users)
-    fp = open("welcome_messages.json", 'r')
-    messages = json.load(fp)
-    for i in new_list:
-        if i in messages:
-            chat(s, messages[i])
-    users = newuserlist
+def save_to_file(all_parts):
+    today = datetime.date.today()
+    save_path = "chat_history/"
+    complete_name = os.path.join(save_path, str(today) + cfg.CHAN + ".txt")
+    # writes each message to the file
+    with open(complete_name, 'a', encoding='utf-8') as f:
+        to_file = msgtime.formatted_time() + all_parts
+        f.write(to_file)
+    print(msgtime.formatted_time(), all_parts)
 
-    response = s.recv(1024).decode("utf-8")
-    # this breaks up the response so you can have a simpler/nicer looking output
 
-    chat_msg = re.compile(r"^:\w+!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #\w+ :")
-    message = chat_msg.sub("", response)
-    username = re.search(r"\w+", response).group(0)
+def connect_socket():
+    s = socket.socket()
+    s.connect((cfg.HOST, cfg.PORT))
+    s.send("PASS {}\r\n".format(cfg.PASS).encode("utf-8"))
+    s.send("NICK {}\r\n".format(cfg.NICK).encode("utf-8"))
+    s.send("JOIN {}\r\n".format(cfg.CHAN).encode("utf-8"))
+    return s
 
-    allparts = (username + ':' + ' ' + message)
 
-    # tests connection/reconnects if disconnect occurs
-    if len(response) == 0:
-        print("disconnected")
-        s = socket.socket()
-        s.connect((cfg.HOST, cfg.PORT))
-        s.send("PASS {}\r\n".format(cfg.PASS).encode("utf-8"))
-        s.send("NICK {}\r\n".format(cfg.NICK).encode("utf-8"))
-        s.send("JOIN {}\r\n".format(cfg.CHAN).encode("utf-8"))
+def handle_commands(all_parts, message, s, username):
 
-    # tests if we get a ping so we can pong back
-    elif response == "PING :tmi.twitch.tv\r\n":
-        s.send("PONG :tmi.twitch.tv\r\n".encode("utf-8"))
-        print("PING PONG")
-        sleep(1 / cfg.RATE)
+    if message.startswith('!pythoncommands'):
+        twitchchat.chat(s, botcommands.python_commands())
 
-    # otherwise prints text and writes to file
-    else:
+    elif message.startswith("!hello"):
+        twitchchat.chat(s, botcommands.hello() + ' ' + username)
 
-        # creates the file path using the date
-        today = datetime.date.today()
-        save_path = 'E:/Files'
-        completeName = os.path.join(save_path, str(today) + cfg.CHAN + ".txt")
-        with open(completeName, 'a', encoding='utf-8') as f:
+    elif message.startswith("!eightball"):
+        twitchchat.chat(s, random.choice(botcommands.eight_ball()))
 
-            # writes the lines to the file
-            toFile = (msgtime.formatted_time + allparts + "\n")
-            f.write(toFile)
-        print(msgtime.formatted_time, allparts)
+    elif message.startswith("!bm"):
+        twitchchat.chat(s, botcommands.bm())
 
-        hello = "hello"
-        eightball = ["No", "Yes", "Leave me alone", "I think we already know the answer to THAT",
-                     "I'm not sure, I bet Manoli or Ron know though",
-                     "My sources point to yes", "Could be yes, could be no, nobody knows!", "Maybe",
-                     "Are you kidding me?", "You may rely on it", 'Outlook not so good', 'Don\'t count on it',
-                     'Most likely', 'Without a doubt', 'As I see it, yes']
-        bm = ["Bronze 5 is too good for you", "You're terrible at this",
-              "Your mother is a bronze 5 and your father smells of elderberries",
-              "Crying yourself to sleep again tonight? Good.",
-              "Is your father still out at the store? Don't worry, he'll come back soon",
-              "If only someone cared...",
-              "You must be a glutton for punishment eh?", "I bet you main yasuo",
-              "You degenerate weeb lover", "Hey you tried, now if only that mattered...",
-              'Trying for first in the Darwin awards? Go you!', "Nobody loves you, stop bothering me",
-              "You have two parts of brain, 'left' and 'right'. In the left side, there's nothing right. "
-              "In the right side, there's nothing left."]
+    elif message.startswith('!github'):
+        twitchchat.chat(s, botcommands.github())
 
-        github = 'https://github.com/ZERG3R/PythonBot'
+    elif message.startswith('!guessnumber'):
+        twitchchat.chat(s, botcommands.guess_number(message))
 
-        if '!joinmessage' in allparts:
-            message = re.search(r"(joinmessage .+)", allparts)
-            joinmessage = ' '.join(message.group(0).split(" ")[1:])
-            joinmessage = joinmessage.strip()
-            messages[username] = joinmessage
-            with open('welcome_messages.json', 'w') as jfp:
-                json.dump(messages, jfp)
+    elif message.startswith('!feelgood'):
+        twitchchat.chat(s, botcommands.feel_good())
 
-        if "hello" in allparts:
-            chat(s, hello + ' ' + username)
+    elif message.startswith('!joinmessage'):
+        message = re.search(r"(joinmessage .+)", all_parts)
+        join_message = ' '.join(message.group(0).split(" ")[1:])
+        join_message = join_message.strip()
+        botcommands.messages[username] = join_message
+        with open('welcome_messages.json', 'w') as jfp:
+            json.dump(botcommands.messages, jfp)
 
-        if "eightball" in allparts:
-            chat(s, random.choice(eightball))
 
-        if "bm" in allparts:
-            chat(s, random.choice(bm))
+def main():
 
-        if 'github' in allparts:
-            chat(s, github)
+    s = connect_socket()
+    while True:
 
-        if 'guessnumber' in allparts:
-            number = 0
-            stringnum = str(randnum)
-            try:
-                info = re.search(r"(guessnumber \d+)", allparts)
-                number = info.group(0).split(" ")[1]
-            except:
-                pass
-            guessnumbercount += 1
-            # if guessnumbercount % 5 == 0:
-            if int(number) > randnum:
-                chat(s, 'Number is too high! Try guessing lower')
-            elif int(number) < randnum:
-                chat(s, 'Number is too low! Try guessing higher')
-            elif stringnum in allparts:
-                chat(s, '!give ' + username + ' ' + stringnum)
-                randnum = random.randint(1, 1000)
+        response = s.recv(1024).decode("utf-8")
+        # this breaks up the response so you can have a simpler/nicer looking output
 
-        #if "!roulette" in allparts:
-        #    botcommands.russian_roulette()
+        chat_msg = re.compile(r"^:\w+!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #\w+ :")
+        message = chat_msg.sub("", response)
+        username = re.search(r"\w+", response).group(0)
+        all_parts = (username + ': ' + message)
+
+        # this part is exactly the same as the file in chat_history
+        # with open('allparts.txt', 'a', encoding='utf-8') as file:
+        #    file.write(all_parts)
+
+        # tests connection/reconnects if disconnect occurs
+        if len(response) == 0:
+            print("disconnected")
+            s = connect_socket()
+
+        # tests if we get a ping so we can pong back
+        elif response == "PING :tmi.twitch.tv\r\n":
+            s.send("PONG :tmi.twitch.tv\r\n".encode("utf-8"))
+            print("PING PONG")
+            sleep(1 / cfg.RATE)
+
+        # otherwise prints text and writes to file
+        else:
+            save_to_file(all_parts)
+            handle_commands(all_parts, message, s, username)
+
+
+main()
