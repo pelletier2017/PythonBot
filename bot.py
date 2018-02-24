@@ -2,9 +2,21 @@
 # !/usr/bin/env python3
 
 from time import sleep
-from twitchbot import msgtime, cfg, botcommands, twitchchat
-import os.path, sys, socket, datetime, re, random,  json
-sys.path.append('e:/Programming/projects/twitchbot/botcommands')
+import datetime
+import json
+import os.path
+import random
+import re
+import socket
+
+# project specific imports
+import msgtime
+import cfg
+import botcommands
+import twitchchat
+
+# if it works without this line i think we should remove it
+#sys.path.append('e:/Programming/projects/twitchbot/botcommands')
 
 
 def ban(sock, user):
@@ -17,7 +29,7 @@ def ban(sock, user):
     twitchchat.chat(sock, ".ban{}".format(user))
 
 
-def timeout(sock, user, secs=input()):
+def timeout(sock, user, secs):
     """Time out a user for a period of time (input).
    Keyword arguments:
    sock -- the socket over which to send the timeout command
@@ -26,88 +38,90 @@ def timeout(sock, user, secs=input()):
     twitchchat.chat(sock, ".timeout {}".format(user, secs))
 
 
-# connects us to IRC
-s = socket.socket()
-s.connect((cfg.HOST, cfg.PORT))
-print("")
-s.send("PASS {}\r\n".format(cfg.PASS).encode("utf-8"))
-s.send("NICK {}\r\n".format(cfg.NICK).encode("utf-8"))
-s.send("JOIN {}\r\n".format(cfg.CHAN).encode("utf-8"))
+def save_to_file(all_parts):
+    today = datetime.date.today()
+    save_path = "chat_history/"
+    complete_name = os.path.join(save_path, str(today) + cfg.CHAN + ".txt")
+    # writes each message to the file
+    with open(complete_name, 'a', encoding='utf-8') as f:
+        to_file = msgtime.formatted_time() + all_parts
+        f.write(to_file)
+    print(msgtime.formatted_time(), all_parts)
 
 
-while True:
+def connect_socket():
+    s = socket.socket()
+    s.connect((cfg.HOST, cfg.PORT))
+    s.send("PASS {}\r\n".format(cfg.PASS).encode("utf-8"))
+    s.send("NICK {}\r\n".format(cfg.NICK).encode("utf-8"))
+    s.send("JOIN {}\r\n".format(cfg.CHAN).encode("utf-8"))
+    return s
 
-    response = s.recv(1024).decode("utf-8")
-    # this breaks up the response so you can have a simpler/nicer looking output
 
-    chat_msg = re.compile(r"^:\w+!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #\w+ :")
-    message = chat_msg.sub("", response)
-    username = re.search(r"\w+", response).group(0)
+def handle_commands(all_parts, message, s, username):
 
-    allparts = (username + ':' + ' ' + message)
-    with open('allparts.txt', 'w', encoding='utf-8') as file:
-        file.write(allparts)
+    if message.startswith('!pythoncommands'):
+        twitchchat.chat(s, botcommands.python_commands())
 
-    # tests connection/reconnects if disconnect occurs
-    if len(response) == 0:
-        print("disconnected")
-        s = socket.socket()
-        s.connect((cfg.HOST, cfg.PORT))
-        s.send("PASS {}\r\n".format(cfg.PASS).encode("utf-8"))
-        s.send("NICK {}\r\n".format(cfg.NICK).encode("utf-8"))
-        s.send("JOIN {}\r\n".format(cfg.CHAN).encode("utf-8"))
+    elif message.startswith("!hello"):
+        twitchchat.chat(s, botcommands.hello() + ' ' + username)
 
-    # tests if we get a ping so we can pong back
-    elif response == "PING :tmi.twitch.tv\r\n":
-        s.send("PONG :tmi.twitch.tv\r\n".encode("utf-8"))
-        print("PING PONG")
-        sleep(1 / cfg.RATE)
+    elif message.startswith("!eightball"):
+        twitchchat.chat(s, random.choice(botcommands.eight_ball()))
 
-    # otherwise prints text and writes to file
-    else:
+    elif message.startswith("!bm"):
+        twitchchat.chat(s, botcommands.bm())
 
-        # creates the file path using the date
-        today = datetime.date.today()
-        save_path = 'E:/Files'
-        completeName = os.path.join(save_path, str(today) + cfg.CHAN + ".txt")
-        with open(completeName, 'a', encoding='utf-8') as f:
+    elif message.startswith('!github'):
+        twitchchat.chat(s, botcommands.github())
 
-            # writes the lines to the file
-            toFile = (msgtime.formatted_time + allparts + "\n")
-            f.write(toFile)
-        print(msgtime.formatted_time, allparts)
+    elif message.startswith('!guessnumber'):
+        twitchchat.chat(s, botcommands.guess_number(message))
 
-        if '!pythoncommands' in allparts:
-            twitchchat.chat(s, botcommands.pythoncommands())
+    elif message.startswith('!feelgood'):
+        twitchchat.chat(s, botcommands.feel_good())
 
-        if '!joinmessage' in allparts:
-            # try:
-            message = re.search(r"(joinmessage .+)", allparts)
-            joinmessage = ' '.join(message.group(0).split(" ")[1:])
-            joinmessage = joinmessage.strip()
-            botcommands.messages[username] = joinmessage
-            with open('welcome_messages.json', 'w') as jfp:
-                json.dump(botcommands.messages, jfp)
-            # except:
-                # pass
-        # print(botcommands.new_list)
-        for i in botcommands.new_list:
-            print(i)
-            if i in botcommands.messages:
-                print(i)
-                twitchchat.chat(s, botcommands.messages[i])
+    elif message.startswith('!joinmessage'):
+        message = re.search(r"(joinmessage .+)", all_parts)
+        join_message = ' '.join(message.group(0).split(" ")[1:])
+        join_message = join_message.strip()
+        botcommands.messages[username] = join_message
+        with open('welcome_messages.json', 'w') as jfp:
+            json.dump(botcommands.messages, jfp)
 
-        if "!hello" in allparts:
-            twitchchat.chat(s, botcommands.hello() + ' ' + username)
 
-        if "!eightball" in allparts:
-            twitchchat.chat(s, random.choice(botcommands.eightball()))
+def main():
 
-        if "!bm" in allparts:
-            twitchchat.chat(s, random.choice(botcommands.bm()))
+    s = connect_socket()
+    while True:
 
-        if '!github' in allparts:
-            twitchchat.chat(s, botcommands.github())
+        response = s.recv(1024).decode("utf-8")
+        # this breaks up the response so you can have a simpler/nicer looking output
 
-        if '!guessnumber' in allparts:
-            twitchchat.chat(s, botcommands.guessnumber())
+        chat_msg = re.compile(r"^:\w+!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #\w+ :")
+        message = chat_msg.sub("", response)
+        username = re.search(r"\w+", response).group(0)
+        all_parts = (username + ': ' + message)
+
+        # this part is exactly the same as the file in chat_history
+        # with open('allparts.txt', 'a', encoding='utf-8') as file:
+        #    file.write(all_parts)
+
+        # tests connection/reconnects if disconnect occurs
+        if len(response) == 0:
+            print("disconnected")
+            s = connect_socket()
+
+        # tests if we get a ping so we can pong back
+        elif response == "PING :tmi.twitch.tv\r\n":
+            s.send("PONG :tmi.twitch.tv\r\n".encode("utf-8"))
+            print("PING PONG")
+            sleep(1 / cfg.RATE)
+
+        # otherwise prints text and writes to file
+        else:
+            save_to_file(all_parts)
+            handle_commands(all_parts, message, s, username)
+
+
+main()

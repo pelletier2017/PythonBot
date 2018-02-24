@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-from twitchbot import cfg
+
+import datetime
+import os
+
+import cfg
+import msgtime
 
 
 def chat(sock, msg):
@@ -14,6 +19,13 @@ def chat(sock, msg):
     print(msg_encoded)
     sock.send(msg_encoded)
 
-# this breaks up the response so you can have a simpler/nicer looking output
 
-
+def save_bot_response(msg):
+    today = datetime.date.today()
+    save_path = "chat_history/"
+    complete_name = os.path.join(save_path, str(today) + cfg.CHAN + ".txt")
+    # writes each message to the file
+    with open(complete_name, 'a', encoding='utf-8') as f:
+        to_file = msgtime.formatted_time() + msg
+        f.write(to_file)
+    print(msgtime.formatted_time, msg)

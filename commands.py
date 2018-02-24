@@ -7,8 +7,7 @@ import cfg
 #import numpy as np
 
 def cleanMsg(response):
-    chat_MSG =
-chat_MSG = bot.re.compile(r"^:\w+!\w+@\.tmi\.twitch\.tv PRIVMSG #\w+ :")
+    chat_MSG = chat_MSG = bot.re.compile(r"^:\w+!\w+@\.tmi\.twitch\.tv PRIVMSG #\w+ :")
     return chat_MSG.sub("", response)
 
 bot.chat(s, "I'm here!")
