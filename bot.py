@@ -117,7 +117,6 @@ def main():
 
     s = connect_socket()
     welcome_messages = load_welcome_messages()
-    update_welcome_messages(welcome_messages, 'thukor', 'dif example')
     chat_regex = re.compile(r"^:\w+!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #\w+ :")
     prev_viewers = set(get_viewers())
 
