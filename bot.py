@@ -16,7 +16,7 @@ import re
 import random
 import requests
 import json
-
+ 
 
 def chat(sock, msg):
     """
