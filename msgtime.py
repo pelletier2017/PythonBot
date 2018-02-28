@@ -2,5 +2,7 @@
 
 import datetime
 
-current_time = datetime.datetime.now()
-formatted_time = "{:%H:%M})".format(current_time)
+
+def formatted_time():
+    current_time = datetime.datetime.now()
+    return "({:%H:%M})".format(current_time)
