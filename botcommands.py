@@ -19,16 +19,16 @@ def eight_ball():
 
 def bm():
     bm_list = ["Bronze 5 is too good for you", "You're terrible at this",
-              "Your mother is a bronze 5 and your father smells of elderberries",
-              "Crying yourself to sleep again tonight? Good.",
-              "Is your father still out at the store? Don't worry, he'll come back soon",
-              "If only someone cared...",
-              "You must be a glutton for punishment eh?", "I bet you main yasuo",
-              "You degenerate weeb lover", "Hey you tried, now if only that mattered...",
-              'Trying for first in the Darwin awards? Go you!', "Nobody loves you, stop bothering me",
-              "You have two parts of brain, 'left' and 'right'. In the left side, there's nothing right. "
-              "In the right side, there's nothing left.",
-              "It's better to let someone think you are an idiot than to open your mouth and prove it."]
+               "Your mother is a bronze 5 and your father smells of elderberries",
+               "Crying yourself to sleep again tonight? Good.",
+               "Is your father still out at the store? Don't worry, he'll come back soon",
+               "If only someone cared...",
+               "You must be a glutton for punishment eh?", "I bet you main yasuo",
+               "You degenerate weeb lover", "Hey you tried, now if only that mattered...",
+               'Trying for first in the Darwin awards? Go you!', "Nobody loves you, stop bothering me",
+               "You have two parts of brain, 'left' and 'right'. In the left side, there's nothing right. "
+               "In the right side, there's nothing left.",
+               "It's better to let someone think you are an idiot than to open your mouth and prove it."]
     return random.choice(bm_list)
 
 
@@ -62,7 +62,8 @@ def guess_number(message):
 
 
 def feel_good():
-    feel_good_list = ["You're more fun than a ball pit filled with candy. (And seriously, what could be more fun than that?)",
+    feel_good_list = ["You're more fun than a ball pit filled with candy. "
+                      "(And seriously, what could be more fun than that?)",
                       "That thing you don't like about yourself is what makes you so interesting.",
                       "If you were a box of crayons, you'd be the giant name-brand one with the built-in sharpener.",
                       "The people you love are lucky to have you in their lives.",
@@ -83,14 +84,3 @@ def feel_good():
                       ]
     return random.choice(feel_good_list)
 
-# JOIN MESSAGE, doesnt do anything yet right?
-#jsonData = requests.get(url='https://tmi.twitch.tv/group/user/zerg3rr/chatters').json()
-#users = jsonData['chatters']['viewers'] + jsonData['chatters']['moderators']
-#users = list(users)
-#print(users)
-
-#new_user_list = list(jsonData['chatters']['viewers'] + jsonData['chatters']['moderators'])
-#new_list = set(new_user_list) - set(users)
-#fp = open("welcome_messages.json", 'r')
-#messages = json.load(fp)
-#users = new_user_list

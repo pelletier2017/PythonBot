@@ -12,14 +12,10 @@ import socket
 
 
 # project specific imports
-import msgtime
-import cfg
-import botcommands
-import twitchchat
-
-# if it works without this line i think we should remove it
-#sys.path.append('e:/Programming/projects/twitchbot/botcommands')
-
+from twitchbot import msgtime
+from twitchbot import cfg
+from twitchbot import botcommands
+from twitchbot import twitchchat
 
 WELCOME_MESSAGE_JSON = 'welcome_messages.json'
 
@@ -77,9 +73,9 @@ def connect_socket():
 
 def get_viewers():
     channel_json = requests.get(url='https://tmi.twitch.tv/group/user/zerg3rr/chatters').json()
-    viewers = (channel_json['chatters']['viewers']
-             + channel_json['chatters']['moderators'])
+    viewers = (channel_json['chatters']['viewers'] + channel_json['chatters']['moderators'])
     return viewers
+
 
 def handle_commands(s, username, message, welcome_messages):
 
