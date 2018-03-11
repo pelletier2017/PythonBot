@@ -1,7 +1,7 @@
 # http://www.instructables.com/id/Twitchtv-Moderator-Bot/
 # !/usr/bin/env python3
 
-from time import sleep
+import time
 import datetime
 import json
 import os.path
@@ -9,6 +9,7 @@ import random
 import re
 import requests
 import socket
+from datetime import timedelta
 
 
 # project specific imports
@@ -17,7 +18,7 @@ from twitchbot import cfg
 from twitchbot import botcommands
 from twitchbot import twitchchat
 
-WELCOME_MESSAGE_JSON = 'welcome_messages.json'
+WELCOME_MESSAGE_JSON = 'e:/Programming/projects/twitchbot/welcome_messages.json'
 
 
 def ban(sock, user):
@@ -42,6 +43,8 @@ def timeout(sock, user, secs):
 def save_to_file(all_parts):
     today = datetime.date.today()
     save_path = "chat_history/"
+    if not os.path.exists(save_path):
+        os.mkdir(save_path)
     complete_name = os.path.join(save_path, str(today) + cfg.CHAN + ".txt")
     # writes each message to the file
     with open(complete_name, 'a', encoding='utf-8') as f:
@@ -103,13 +106,16 @@ def handle_commands(s, username, message, welcome_messages):
     elif message.startswith('!joinmessage'):
         # takes all text after "!joinmessage " to use as join_message
         message_regex = re.search(r"(!joinmessage .+)", message)
-        join_message = message_regex.group(0).split(" ", 1)[1].strip()
+        join_message = message_regex.group(0).split(" ", 1)[1].strip() + ' - ' + username
 
         update_welcome_messages(welcome_messages, username, join_message)
-        twitchchat.chat(s, "updated messages")
+        twitchchat.chat(s, '!remove' + ' ' + '1000' + ' ' + username)
+
+        # cooldown - if user welcome message used in last 5 minutes, skip
 
 
 def main():
+    last_time_welcomed = {}
 
     s = connect_socket()
     welcome_messages = load_welcome_messages()
@@ -120,34 +126,42 @@ def main():
 
         response = s.recv(1024).decode("utf-8")
         message = chat_regex.sub("", response)
-        username = re.search(r"\w+", response).group(0)
-        all_parts = (username + ': ' + message)
+        try:
+            username = re.search(r"\w+", response).group(0)
+            all_parts = (username + ': ' + message)
 
         # welcomes all new viewers
-        viewers = set(get_viewers())
-        print(str(viewers))
+            viewers = set(get_viewers())
 
-        new_viewers = viewers - prev_viewers
-        for viewer in new_viewers:
-            twitchchat.chat(s, welcome_messages[viewer])
+            new_viewers = viewers - prev_viewers
+            for viewer in new_viewers:
+                if viewer in welcome_messages:
+                    last_updated = last_time_welcomed.get(viewer)
+                    if last_updated is None or last_updated + timedelta(seconds=300) > datetime.datetime.now():
 
-        prev_viewers = viewers
+                        twitchchat.chat(s, welcome_messages[viewer])
+                        last_time_welcomed[viewer] = datetime.time()
 
-        # tests connection/reconnects if disconnect occurs
-        if len(response) == 0:
-            print("disconnected")
-            s = connect_socket()
+            prev_viewers = viewers
 
-        # tests if we get a ping so we can pong back
-        elif response == "PING :tmi.twitch.tv\r\n":
-            s.send("PONG :tmi.twitch.tv\r\n".encode("utf-8"))
-            print("PING PONG")
-            sleep(1 / cfg.RATE)
+            # tests connection/reconnects if disconnect occurs
+            if len(response) == 0:
+                print("disconnected")
+                s = connect_socket()
 
-        # otherwise prints text and writes to file
-        else:
-            save_to_file(all_parts)
-            handle_commands(s, username, message, welcome_messages)
+            # tests if we get a ping so we can pong back
+            elif response == "PING :tmi.twitch.tv\r\n":
+                s.send("PONG :tmi.twitch.tv\r\n".encode("utf-8"))
+                print("PING PONG")
+                time.sleep(1 / cfg.RATE)
+
+            # otherwise prints text and writes to file
+            else:
+                save_to_file(all_parts)
+                handle_commands(s, username, message, welcome_messages)
+
+        except (AttributeError, ValueError, TypeError):
+            pass
 
 
 main()

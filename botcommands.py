@@ -3,6 +3,8 @@
 # !/usr/bin/env python3
 import re
 import random
+import linecache
+import os
 
 
 def hello():
@@ -42,23 +44,27 @@ def github():
 
 def guess_number(message):
 
-    secret_num = random.randint(1, 100)
-    guess_regex = re.search(r"(guessnumber \d+)", message)
-    guess = guess_regex.group(0).split(" ")[1]
+    try:
+        secret_num = random.randint(1, 100)
+        guess_regex = re.search(r"(guessnumber \d+)", message)
+        guess = guess_regex.group(0).split(" ")[1]
 
-    if int(guess) > secret_num:
-        response = 'Number is too high! Try guessing lower'
-    elif int(guess) < secret_num:
-        response = 'Number is too low! Try guessing higher'
-    else:
-        response = "YOU GOT IT!"
+        if int(guess) > secret_num:
+            response = 'Number is too high! Try guessing lower'
+        elif int(guess) < secret_num:
+            response = 'Number is too low! Try guessing higher'
+        else:
+            response = "YOU GOT IT!"
 
-    #else:
+        return response + " btw the answer was " + str(secret_num)
+
+    except AttributeError:
+        print('Error occured')
+
+    # else:
     #    give_command = '!give ' + username + ' ' + string_num
     #    # msg_countdown += 1
     #    random_number_generator()
-
-    return response + " btw the answer was " + str(secret_num)
 
 
 def feel_good():
@@ -83,4 +89,22 @@ def feel_good():
                       "I believe in you."
                       ]
     return random.choice(feel_good_list)
+
+
+def triviabot(message):
+    with open('E:\Editing Software\SovietmadeApps\TwitchQuizBot\\new_trivia.txt', 'rb') as f:
+        first = f.readline()
+        f.seek(-2, os.SEEK_END)
+        while f.readline(1) != b'\n':
+            f.seek(-2, os.SEEK_CUR)
+        last = enumerate(f.readline())
+        raw_question = linecache.getline('E:\Editing Software\SovietmadeApps\TwitchQuizBot\\new_trivia.txt',
+                                        random.randrange(0, last))
+        q_and_a = re.search(r"((?<=)(.*)(?={Answer}.*))", raw_question)
+        print(q_and_a.group(1))
+        print(q_and_a.group(2))
+    try:
+        pass
+    except:
+        pass
 
