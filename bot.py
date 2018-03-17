@@ -13,12 +13,18 @@ from datetime import timedelta
 
 
 # project specific imports
-from twitchbot import msgtime
-from twitchbot import cfg
-from twitchbot import botcommands
-from twitchbot import twitchchat
+#from twitchbot import msgtime
+#from twitchbot import cfg
+#from twitchbot import botcommands
+#from twitchbot import twitchchat
+import msgtime
+import cfg
+import botcommands
+import twitchchat
 
-WELCOME_MESSAGE_JSON = 'e:/Programming/projects/twitchbot/welcome_messages.json'
+
+#WELCOME_MESSAGE_JSON = 'e:/Programming/projects/twitchbot/welcome_messages.json'
+WELCOME_MESSAGE_JSON = 'welcome_messages.json'
 
 
 def ban(sock, user):
@@ -75,6 +81,7 @@ def connect_socket():
 
 
 def get_viewers():
+    print("getting viewers (may take a few seconds)")
     #error here
     try:
         channel_json = requests.get(url='https://tmi.twitch.tv/group/user/zerg3rr/chatters').json()
@@ -82,9 +89,10 @@ def get_viewers():
         if viewers is not None:
             return viewers
         else:
-            return False
+            return {}
     except ValueError:
         print('ValueError occured when parsing get_viewers data/function')
+    print("done getting viewers")
 
 
 def handle_commands(s, username, message, welcome_messages):
@@ -121,52 +129,52 @@ def handle_commands(s, username, message, welcome_messages):
         # cooldown - if user welcome message used in last 5 minutes, skip
 
 
+def join_message(welcome_messages, prev_viewers, s):  # welcomes all new viewers
+    print('join message')
+    last_time_welcomed = {}
+
+    if get_viewers():
+        viewers = set(get_viewers())
+        print('viewers not empty')
+
+        new_viewers = viewers - prev_viewers
+        for viewer in new_viewers:
+            if viewer in welcome_messages:
+                last_updated = last_time_welcomed.get(viewer)
+                #error here #fixed possibly
+                current_time = datetime.datetime.now()
+                print('test4.3')
+
+                if last_updated is None or last_updated + timedelta(seconds=300) > current_time:
+                    print('welcoming person')
+                    twitchchat.chat(s, welcome_messages[viewer])
+                    last_time_welcomed[viewer] = datetime.time()
+
+
 def main():
     welcome_messages = load_welcome_messages()
-    print('test1')
+    print('setting up')
     if set(get_viewers()) is not None:
         prev_viewers = set(get_viewers())
-        print('test2')
+        print('updated prev viewers')
 
     s = connect_socket()
     chat_regex = re.compile(r"^:\w+!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #\w+ :")
-    print('test3')
+    print('socket connected')
 
     while True:
-        print('test4')
+        print('main loop')
 
-        def join_message():  # welcomes all new viewers
-            print('test4.1')
-            last_time_welcomed = {}
+        join_message(welcome_messages, prev_viewers, s)
+        print('after join message')
 
-            if get_viewers() is not False:
-                viewers = set(get_viewers())
-                print('test4.2')
-
-                new_viewers = viewers - prev_viewers
-                for viewer in new_viewers:
-                    if viewer in welcome_messages:
-                        last_updated = last_time_welcomed.get(viewer)
-                        #error here #fixed possibly
-                        current_time = datetime.datetime.now()
-                        print('test4.3')
-
-                        if last_updated is None or last_updated + timedelta(seconds=300) > current_time:
-                            print('test4.4')
-                            twitchchat.chat(s, welcome_messages[viewer])
-                            last_time_welcomed[viewer] = datetime.time()
-            else:
-                pass
-        join_message()
-        print('test5')
-
-        #error here where too many messages causes regex to fail
+        # error here where too many messages causes regex to fail
         response = s.recv(1024).decode("utf-8")
         print(response)
         message = chat_regex.sub("", response)
         username = re.search(r"\w+", response).group(0)
         all_parts = (username + ': ' + message)
-        print('test6')
+        print('after response')
 
         # tests connection/reconnects if disconnect occurs
         if len(response) == 0:
@@ -181,10 +189,10 @@ def main():
 
         # otherwise prints text and writes to file
         else:
-            print('test7')
+            print('reading line of chat')
             save_to_file(all_parts)
             handle_commands(s, username, message, welcome_messages)
-            print('test8')
+            print('done reading line of chat')
 
 
 main()
