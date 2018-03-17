@@ -83,16 +83,16 @@ def connect_socket():
 def get_viewers():
     print("getting viewers (may take a few seconds)")
     #error here
+    viewers = {}
     try:
         channel_json = requests.get(url='https://tmi.twitch.tv/group/user/zerg3rr/chatters').json()
         viewers = (channel_json['chatters']['viewers'] + channel_json['chatters']['moderators'])
-        if viewers is not None:
-            return viewers
-        else:
-            return {}
+        if viewers is None:
+            viewers = {}
     except ValueError:
         print('ValueError occured when parsing get_viewers data/function')
     print("done getting viewers")
+    return viewers
 
 
 def handle_commands(s, username, message, welcome_messages):
