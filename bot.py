@@ -50,7 +50,7 @@ def save_to_file(all_parts):
     with open(complete_name, 'a', encoding='utf-8') as f:
         to_file = msgtime.formatted_time() + all_parts
         f.write(to_file)
-    print(msgtime.formatted_time(), all_parts)
+    #print(msgtime.formatted_time(), all_parts)
 
 
 def load_welcome_messages():
@@ -75,9 +75,16 @@ def connect_socket():
 
 
 def get_viewers():
-    channel_json = requests.get(url='https://tmi.twitch.tv/group/user/zerg3rr/chatters').json()
-    viewers = (channel_json['chatters']['viewers'] + channel_json['chatters']['moderators'])
-    return viewers
+    #error here
+    try:
+        channel_json = requests.get(url='https://tmi.twitch.tv/group/user/zerg3rr/chatters').json()
+        viewers = (channel_json['chatters']['viewers'] + channel_json['chatters']['moderators'])
+        if viewers is not None:
+            return viewers
+        else:
+            return False
+    except ValueError:
+        print('ValueError occured when parsing get_viewers data/function')
 
 
 def handle_commands(s, username, message, welcome_messages):
@@ -115,53 +122,69 @@ def handle_commands(s, username, message, welcome_messages):
 
 
 def main():
-    last_time_welcomed = {}
+    welcome_messages = load_welcome_messages()
+    print('test1')
+    if set(get_viewers()) is not None:
+        prev_viewers = set(get_viewers())
+        print('test2')
 
     s = connect_socket()
-    welcome_messages = load_welcome_messages()
     chat_regex = re.compile(r"^:\w+!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #\w+ :")
-    prev_viewers = set(get_viewers())
+    print('test3')
 
     while True:
+        print('test4')
 
-        response = s.recv(1024).decode("utf-8")
-        message = chat_regex.sub("", response)
-        try:
-            username = re.search(r"\w+", response).group(0)
-            all_parts = (username + ': ' + message)
+        def join_message():  # welcomes all new viewers
+            print('test4.1')
+            last_time_welcomed = {}
 
-        # welcomes all new viewers
-            viewers = set(get_viewers())
+            if get_viewers() is not False:
+                viewers = set(get_viewers())
+                print('test4.2')
 
-            new_viewers = viewers - prev_viewers
-            for viewer in new_viewers:
-                if viewer in welcome_messages:
-                    last_updated = last_time_welcomed.get(viewer)
-                    if last_updated is None or last_updated + timedelta(seconds=300) > datetime.datetime.now():
+                new_viewers = viewers - prev_viewers
+                for viewer in new_viewers:
+                    if viewer in welcome_messages:
+                        last_updated = last_time_welcomed.get(viewer)
+                        #error here #fixed possibly
+                        current_time = datetime.datetime.now()
+                        print('test4.3')
 
-                        twitchchat.chat(s, welcome_messages[viewer])
-                        last_time_welcomed[viewer] = datetime.time()
-
-            prev_viewers = viewers
-
-            # tests connection/reconnects if disconnect occurs
-            if len(response) == 0:
-                print("disconnected")
-                s = connect_socket()
-
-            # tests if we get a ping so we can pong back
-            elif response == "PING :tmi.twitch.tv\r\n":
-                s.send("PONG :tmi.twitch.tv\r\n".encode("utf-8"))
-                print("PING PONG")
-                time.sleep(1 / cfg.RATE)
-
-            # otherwise prints text and writes to file
+                        if last_updated is None or last_updated + timedelta(seconds=300) > current_time:
+                            print('test4.4')
+                            twitchchat.chat(s, welcome_messages[viewer])
+                            last_time_welcomed[viewer] = datetime.time()
             else:
-                save_to_file(all_parts)
-                handle_commands(s, username, message, welcome_messages)
+                pass
+        join_message()
+        print('test5')
 
-        except (AttributeError, ValueError, TypeError):
-            pass
+        #error here where too many messages causes regex to fail
+        response = s.recv(1024).decode("utf-8")
+        print(response)
+        message = chat_regex.sub("", response)
+        username = re.search(r"\w+", response).group(0)
+        all_parts = (username + ': ' + message)
+        print('test6')
+
+        # tests connection/reconnects if disconnect occurs
+        if len(response) == 0:
+            print("disconnected")
+            s = connect_socket()
+
+        # tests if we get a ping so we can pong back
+        elif response == "PING :tmi.twitch.tv\r\n":
+            s.send("PONG :tmi.twitch.tv\r\n".encode("utf-8"))
+            print("PING PONG")
+            time.sleep(1 / cfg.RATE)
+
+        # otherwise prints text and writes to file
+        else:
+            print('test7')
+            save_to_file(all_parts)
+            handle_commands(s, username, message, welcome_messages)
+            print('test8')
 
 
 main()
